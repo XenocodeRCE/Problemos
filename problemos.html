@@ -1,0 +1,1445 @@
+<!DOCTYPE html><html lang="fr"><head><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
+    <meta charset="UTF-8">
+    <title>Jeu de Problématisation Philo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root {
+            --main-bg: linear-gradient(135deg, #7f7fd5 0%, #86a8e7 75%, #91eac9 100%);
+            --primary: #5e60ce;
+            --secondary: #4361ee;
+            --accent: #ffd166;
+            --success: #06d6a0;
+            --danger: #ef476f;
+            --white: #fff;
+            --shadow: 0 6px 24px rgba(60,60,60,0.13), 0 1.5px 5px rgba(30,30,30,0.09);
+        }
+
+        /* Styles pour l'effet de rebond des boutons validés */
+        .btn-validated-bounce {
+            animation: bounceValidated 0.6s ease;
+        }
+        @keyframes bounceValidated {
+            0%, 100% { transform: scale(1); }
+            25% { transform: scale(0.95); }
+            50% { transform: scale(1.1); }
+            75% { transform: scale(1.05); }
+        }
+
+        /* Styles pour l'animation de transition entre les niveaux */
+        .level-transition-out {
+            animation: fadeOutLevel 0.3s forwards;
+        }
+        .level-transition-in {
+            animation: fadeInLevel 0.5s forwards;
+        }
+        @keyframes fadeOutLevel {
+            from { opacity: 1; transform: scale(1); }
+            to { opacity: 0; transform: scale(0.98); }
+        }
+        @keyframes fadeInLevel {
+            from { opacity: 0; transform: scale(0.98); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        /* Styles pour la gamification visuelle */
+        .achievements-container {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            text-align: center;
+        }
+        .badge {
+            display: inline-block;
+            background-color: var(--accent);
+            color: #504300;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            margin: 3px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .badge.achievement-unlocked {
+            transform: scale(1.1);
+            box-shadow: 0 3px 8px rgba(255,209,102,0.5); /* Accent color shadow */
+        }
+        .badge.locked {
+            background-color: #e0e0e0;
+            color: #888;
+            filter: grayscale(80%);
+        }
+        .badge-tooltip {
+            visibility: hidden;
+            width: 120px;
+            background-color: #555;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px 0;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%; /* Position the tooltip above the badge */
+            left: 50%;
+            margin-left: -60px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .badge-tooltip::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #555 transparent transparent transparent;
+        }
+        .badge:hover .badge-tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        /* Styles originaux de gamification à réintégrer ici */
+        .stars-rating {
+            margin: 5px 0;
+        }
+        .star {
+            font-size: 1.5em;
+            color: #ffd700; /* Gold color for stars */
+            cursor: default;
+        }
+        .star.empty {
+            color: #ccc;
+        }
+        .xp-bar-container { /* Assurez-vous que ce conteneur est bien stylisé s'il est distinct du progress-bar-container */
+            width: 100%;
+            background-color: #e0e0e0;
+            border-radius: 10px;
+            margin: 10px 0; /* Ajusté par rapport à la barre de progression de niveau */
+            height: 10px;   /* Ajusté par rapport à la barre de progression de niveau */
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+        }
+        /* Fin des styles originaux de gamification à réintégrer */
+
+        .toast-notification {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--success);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            z-index: 10001; /* Above confetti */
+            font-size: 1.1em;
+            display: none;
+            animation: fadeInOutToast 4s ease-in-out forwards;
+        }
+        @keyframes fadeInOutToast {
+            0%, 100% { opacity: 0; bottom: -50px; }
+            10%, 90% { opacity: 1; bottom: 20px; }
+        }
+
+        .achievements-modal {
+            position: fixed;
+            z-index: 10000; /* Below toast, above confetti if toast is higher */
+            left: 0; top: 0; right: 0; bottom: 0;
+            background: rgba(30,40,60,0.5);
+            display: none; /* Hidden by default */
+            align-items: center;
+            justify-content: center;
+        }
+        .achievements-modal-content {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px #0002, 0 2px 8px #0001;
+            padding: 20px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            text-align: center;
+        }
+        .achievements-modal-content h2 {
+            color: var(--primary);
+            margin-top: 0;
+        }
+        .achievements-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .achievement-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            position: relative; /* For tooltip */
+        }
+        .achievement-item .badge { /* Make badge larger in modal */
+            font-size: 1em;
+            padding: 8px 12px;
+            margin-bottom: 5px;
+        }
+        .achievement-item span {
+            font-size: 0.85em;
+            color: #555;
+        }
+        .achievement-item .badge.locked + span {
+            color: #aaa;
+        }
+
+        /* Glossy effect for buttons */
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: var(--main-bg);
+            font-family: 'Segoe UI', 'Roboto', Arial, sans-serif;
+            color: #16213e;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            background: rgba(255,255,255,0.98);
+            border-radius: 18px;
+            box-shadow: var(--shadow);
+            max-width: 420px;
+            width: 98%;
+            margin: 16px auto;
+            padding: 22px 18px 16px 18px;
+            display: flex;
+            flex-direction: column;
+        }
+        h1 {
+            font-size: 1.6rem;
+            letter-spacing: 1px;
+            margin-bottom: 0.2em;
+            color: var(--primary);
+            text-shadow: 0 1px 0 #fff;
+            text-align: center; /* Centrer le titre */
+        }
+        .progress-bar-container {
+            width: 100%;
+            background-color: #e0e0e0;
+            border-radius: 10px;
+            margin-bottom: 15px; /* Maintenu pour espacement avant la barre d'XP */
+            height: 15px;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .progress-bar {
+            width: 0%;
+            height: 100%;
+            background-color: var(--success);
+            border-radius: 10px;
+            transition: width 0.5s ease-in-out;
+            text-align: center;
+            color: white;
+            font-size: 0.8em;
+            line-height: 15px;
+        }
+        .score-lives {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 18px;
+        }
+        .score {
+            font-size: 1.1rem;
+            background: var(--success);
+            color: #093b2d;
+            border-radius: 13px;
+            padding: 7px 18px;
+            box-shadow: 0 2px 8px #b2f7e5cc;
+            font-weight: 600;
+        }
+        .score.pulsate {
+            animation: pulsate 0.5s ease-out;
+        }
+        @keyframes pulsate {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+            100% { transform: scale(1); }
+        }
+        .lives {
+            display: flex;
+            gap: 8px;
+            font-size: 1.1rem;
+        }
+        .life {
+            width: 23px;
+            height: 23px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        .life.lost {
+            background: linear-gradient(135deg, #e0e0e0 85%, #fff 100%);
+            color: #bbb;
+            border: 2px solid #ccc;
+        }
+        .subject-box {
+            background: #f5f7fa;
+            border-radius: 10px;
+            box-shadow: 0 2px 7px #c6e0f7bb;
+            padding: 13px 15px;
+            margin-bottom: 18px;
+            font-size: 1.08rem;
+            font-weight: 500;
+            min-height: 50px;
+            transition: background 0.3s;
+        }
+        .form-step {
+            margin-bottom: 13px;
+            display: flex;
+            flex-direction: column;
+        }
+        .form-step label {
+            font-weight: 600;
+            font-size: 1.08em;
+            margin-bottom: 4px;
+            color: var(--secondary);
+        }
+        .form-step input, .form-step textarea {
+            font-size: 1.08em;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 1.5px solid #d6e0f5;
+            margin-bottom: 2px;
+            background: #f7faff;
+            box-shadow: 0 1px 4px #eef4ff77;
+            outline: none;
+            transition: border 0.2s;
+        }
+        .form-step input:focus, .form-step textarea:focus {
+            border: 1.5px solid var(--primary);
+        }
+        .form-step textarea {
+            min-height: 48px;
+            resize: vertical;
+        }
+        .actions {
+            display: flex;
+            gap: 11px;
+            margin-top: 8px;
+        }
+        .glossy-btn {
+            background: linear-gradient(135deg, var(--primary), var(--secondary) 80%);
+            color: #fff;
+            border: none;
+            outline: none;
+            font-size: 1.1em;
+            font-weight: 600;
+            padding: 10px 26px;
+            border-radius: 12px;
+            box-shadow: 0 4px 14px #abbaff88;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.08s;
+            position: relative; /* Pour l'effet de brillance */
+            overflow: hidden; /* Pour l'effet de brillance */
+        }
+        .glossy-btn::before, .indice-btn::before, .next-level-btn::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 50%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            transition: left 0.5s ease;
+        }
+        .glossy-btn:hover::before, .indice-btn:hover::before, .next-level-btn:hover::before {
+            left: 150%;
+        }
+
+        .glossy-btn:active {
+            background: linear-gradient(135deg, var(--secondary), var(--primary) 80%);
+            transform: scale(0.97);
+        }
+        .glossy-btn[disabled] {
+            opacity: 0.58;
+            cursor: not-allowed;
+        }
+        .indice-btn {
+            background: linear-gradient(90deg, var(--accent), #ffe9b0 90%);
+            color: #504300;
+            font-size: 1em;
+            padding: 8px 20px;
+            border-radius: 11px;
+            border: none;
+            box-shadow: 0 2px 9px #ffeeb377;
+            font-weight: 600;
+            margin-bottom: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+            position: relative; /* Pour l'effet de brillance */
+            overflow: hidden; /* Pour l'effet de brillance */
+        }
+        .indice-btn[disabled] {
+            opacity: 0.6;
+        }
+        .indice-box {
+            margin: 10px 0 6px 0;
+            background: #f0f6ff;
+            border-left: 5px solid var(--primary);
+            border-radius: 0 13px 13px 0;
+            padding: 11px 13px;
+            font-style: italic;
+            color: #2b3a55;
+            font-size: 1.03em;
+            box-shadow: 0 2px 6px #dbe5f877;
+            min-height: 28px;
+            display: none;
+        }
+        .feedback-box {
+            margin: 13px 0 7px 0;
+            padding: 11px 15px;
+            background: #fffbe6;
+            border-left: 5px solid var(--accent);
+            border-radius: 0 13px 13px 0;
+            color: #665400;
+            font-size: 1.07em;
+            box-shadow: 0 2px 6px #f7e9b077;
+            min-height: 28px;
+            display: none;
+        }
+        .success-box {
+            background: #e6fff8;
+            border-left: 5px solid var(--success);
+            color: #00503b;
+            margin-top: 12px;
+        }
+        .danger-box {
+            background: #fff1f0;
+            border-left: 5px solid var(--danger);
+            color: #900b20;
+        }
+        .next-level-btn {
+            background: linear-gradient(90deg, var(--success), #74ffbc 90%);
+            color: #055b3a;
+            font-size: 1.07em;
+            font-weight: 600;
+            border: none;
+            border-radius: 9px;
+            padding: 8px 20px;
+            margin-top: 6px;
+            box-shadow: 0 2px 8px #78f7e077;
+            cursor: pointer;
+            transition: background 0.2s;
+            position: relative; /* Pour l'effet de brillance */
+            overflow: hidden; /* Pour l'effet de brillance */
+        }
+        .game-over-box {
+            background: #fff1f0;
+            border: 2.5px solid var(--danger);
+            border-radius: 13px;
+            color: #c1121f;
+            padding: 20px 15px;
+            font-size: 1.2em;
+            margin-top: 22px;
+            text-align: center;
+            font-weight: 600;
+            box-shadow: 0 4px 18px #ffe0e077;
+        }
+        /* Modal styles */
+        .modal-feedback {
+            position: fixed;
+            z-index: 9999;
+            left: 0; top: 0; right: 0; bottom: 0;
+            background: rgba(30,40,60,0.22);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: modalFadeIn 0.35s;
+        }
+        @keyframes modalFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .modal-content {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px #0002, 0 2px 8px #0001;
+            padding: 32px 24px 22px 24px;
+            min-width: 260px;
+            max-width: 95vw;
+            text-align: center;
+            font-size: 1.13em;
+            position: relative;
+            animation: modalPopIn 0.38s cubic-bezier(.7,-0.2,.4,1.5);
+        }
+        @keyframes modalPopIn {
+            0% { opacity: 0; transform: scale(0.7) rotate(-7deg);}
+            60% { opacity: 1; transform: scale(1.05) rotate(5deg);}
+            80% { transform: scale(0.98) rotate(-3deg);}
+            100% { opacity: 1; transform: scale(1) rotate(0deg);}
+        }
+        /* Oscillation */
+        .modal-content.modal-oscillate {
+            animation: modalOscillate 0.7s 1;
+        }
+        @keyframes modalOscillate {
+            0% { transform: rotate(0deg);}
+            15% { transform: rotate(-3deg);}
+            30% { transform: rotate(3deg);}
+            45% { transform: rotate(-2deg);}
+            60% { transform: rotate(2deg);}
+            75% { transform: rotate(-1deg);}
+            90% { transform: rotate(1deg);}
+            100% { transform: rotate(0deg);}
+        }
+        .modal-content.success {
+            border-left: 7px solid var(--success);
+        }
+        .modal-content.danger {
+            border-left: 7px solid var(--danger);
+        }
+        @media (max-width: 520px) {
+            .container {
+                max-width: 99vw;
+                padding: 12px 3vw 10vw 3vw;
+            }
+            .subject-box { font-size: 0.98rem; }
+        }
+        /* Confetti styles */
+        .confetti-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10000; /* Maintenu élevé, mais le toast est à 10001 */
+            overflow: hidden;
+        }
+        .confetto {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: var(--success);
+            opacity: 0.7;
+            animation: fall 3s linear forwards;
+        }
+        .confetto.c1 { background-color: var(--accent); width: 8px; height: 15px;}
+        .confetto.c2 { background-color: var(--primary); }
+        .confetto.c3 { background-color: var(--danger); width: 12px; height: 12px; border-radius: 50%;}
+        .confetto.c4 { background-color: #4361ee; } /* secondary */
+
+        @keyframes fall {
+            0% {
+                transform: translateY(-10vh) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(110vh) rotate(720deg);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="gameContainer">
+        <h1>Problématiser&nbsp;! <span style="font-size:0.7em;color:#777;"></span></h1>
+        <div class="progress-bar-container">
+            <div class="progress-bar" id="levelProgressBar"></div>
+        </div>
+        <div class="xp-bar-container" style="margin-bottom: 15px; display: none;">
+            <div class="xp-bar" id="xpBar"></div>
+        </div>
+        <div class="score-lives">
+            <div class="score" id="scoreBox">Score : 0</div>
+            <div class="lives" id="livesBox">
+                <span class="life">💖</span>
+                <span class="life">💖</span>
+                <span class="life">💖</span>
+            </div>
+        </div>
+        <div class="subject-box" id="subjectBox">
+            Sujet en chargement...
+        </div>
+        <div id="currentAchievements" class="achievements-container" style="margin-bottom:10px; min-height: 30px;">
+            <!-- Badges débloqués récemment apparaîtront ici -->
+        </div>
+        <button class="glossy-btn" id="openAchievementsModalBtn" style="margin-bottom:15px; background: var(--accent); color: #504300; font-size:0.9em; padding: 8px 15px;">Voir mes Badges</button>
+        <div id="indiceBox" class="indice-box"></div>
+        <button class="indice-btn" id="indiceBtn" disabled="">Débloquer un indice (-2 pts)</button>
+        <form id="problemForm" autocomplete="off">
+            <div class="form-step" id="stepX">
+                <label for="inputX">X</label>
+                <input type="text" id="inputX" required="" maxlength="120" placeholder="Premier terme de l'alternative...">
+            </div>
+            <div class="form-step" id="stepCarX">
+                <label for="inputCarX">car...</label>
+                <textarea id="inputCarX" required="" minlength="80" placeholder="Justification de X"></textarea>
+            </div>
+            <div class="form-step" id="stepY">
+                <label for="inputY">Ou bien Y</label>
+                <input type="text" id="inputY" required="" maxlength="120" placeholder="Second terme de l'alternative...">
+            </div>
+            <div class="form-step" id="stepCarY">
+                <label for="inputCarY">car...</label>
+                <textarea id="inputCarY" required="" minlength="80" placeholder="Justification de Y"></textarea>
+            </div>
+            <div class="actions">
+                <button type="submit" class="glossy-btn">Valider ma problématique</button>
+            </div>
+        </form>
+        <div id="feedbackBox" class="feedback-box"></div>
+        <button id="nextLevelBtn" class="next-level-btn" style="display:none;">Sujet suivant</button>
+        <div id="gameOverBox" class="game-over-box" style="display:none;">
+            <div>💔 Partie terminée !</div>
+            <div style="font-size:1.07em;margin:8px 0 3px 0;"><span id="finalScore">Score :</span></div>
+            <button onclick="window.location.reload()" class="glossy-btn" style="margin-top:10px;">Rejouer</button>
+        </div>
+        <!-- Modal feedback -->
+        <div id="modalFeedback" class="modal-feedback" style="display:none;">
+            <div class="modal-content" id="modalContent">
+                <div id="modalMessage"></div>
+                <button id="modalCloseBtn" class="glossy-btn" style="margin-top:18px;">OK</button>
+            </div>
+        </div>
+        <!-- Modal début de niveau -->
+        <div id="modalLevel" class="modal-feedback" style="display:none;">
+            <div class="modal-content" id="modalLevelContent">
+                <div id="modalLevelMessage"></div>
+                <div id="modalLevelLoading" style="margin:12px 0 0 0;display:none;">
+                    <span style="font-size:1.3em;">⏳</span>
+                    <span style="font-size:1em;color:#888;">Chargement...</span>
+                </div>
+                <button id="modalLevelBtn" class="glossy-btn" style="margin-top:18px;">Commencer</button>
+            </div>
+        </div>
+    </div>
+    <div class="confetti-container" id="confettiContainer"></div>
+    <div id="toastNotification" class="toast-notification"></div>
+
+    <!-- Achievements Modal -->
+    <div id="achievementsModal" class="achievements-modal">
+        <div class="achievements-modal-content">
+            <h2>Mes Badges</h2>
+            <div id="achievementsGrid" class="achievements-grid">
+                <!-- Les badges seront listés ici par JS -->
+            </div>
+            <button id="closeAchievementsModalBtn" class="glossy-btn" style="margin-top:20px;">Fermer</button>
+        </div>
+    </div>
+
+    <script>
+        // Sujets de philosophie pour le jeu (sujets bac techno)
+        const sujets = [
+            "La nature est-elle hostile à l’homme ?",
+            "L’artiste est-il maître de son travail ?",
+            "L’erreur nous rapproche-t-elle de la vérité ?",
+            "En quel sens peut-on dire que les êtres humains naissent libres ?",
+            "Y a-t-il un sens à refuser la technique ?",
+            "La création artistique est-elle totalement libre ?",
+            "Connaître la vérité nous rend-il plus libres ?",
+            "Peut-on préférer la justice à son bonheur personnel ?",
+            "Choisit-on de croire ?",
+            "Y a-t-il des injustices tolérables ?",
+            "Faut-il rechercher la justice à tout prix ?",
+            "L’art contribue-t-il à notre liberté ?",
+            "Faire régner la justice, est-ce seulement appliquer les lois ?",
+            "Est-ce la loi qui définit ce qui est juste ?",
+            "La violence peut-elle être juste ?",
+            "N'est-on juste que par intérêt ?",
+            "Suffit-il d'appliquer le droit pour être juste ?",
+            "Être juste, est-ce vouloir l'égalité ?",
+            "Une société n'est-elle juste que si elle satisfait les besoins de tous ?",
+            "Peut-on toujours savoir comment agir avec justice ?",
+            "Peut-on se faire justice soi-même ?",
+            "Les hommes peuvent-ils se mettre d'accord sur le juste et l'injuste ?",
+            "Pour être juste, suffit-il d'obéir aux lois ?",
+            "Pouvons-nous justifier nos croyances ?",
+            "Pour être vraiment heureux, faut-il être juste ?",
+            "Faut-il connaître la loi pour savoir ce qui est juste ?",
+            "Peut-on être heureux en étant injuste ?",
+            "Est-il toujours injuste de désobéir aux lois ?",
+            "Demander justice, est-ce réclamer vengeance ?",
+            "La justice, est-ce le dépassement de tous les conflits ?",
+            "Pourquoi demander justice ?",
+            "Est-il juste de défendre ses droits par tous les moyens ?",
+            "Des inégalités peuvent-elles être justes ?",
+            "Peut-on accepter l’injustice ?",
+            "Peut-on se mettre d’accord sur ce qui est juste ?",
+            "Sommes-nous vraiment sensibles à l’injustice ?",
+            // "Peut-on préférer la justice à son bonheur personnel ?", // Déjà présent
+            // "Y a-t-il des injustices tolérables ?", // Déjà présent
+            // "Faut-il rechercher la justice à tout prix ?", // Déjà présent
+            "Croire nous empêche-t-il de chercher la vérité ?",
+            "La vérité doit-elle être partagée ?",
+            "Une vérité absolue est-elle possible ?",
+            "L'art est-il un moyen d'accéder à la vérité ?",
+            "La science a-t-elle le monopole de la vérité ?",
+            "L'erreur nous éloigne-t-elle toujours de la vérité ?",
+            "L'expérience suffit-elle pour établir une vérité ?",
+            "La recherche de la vérité peut-elle se passer du doute ?",
+            "Le respect des opinions est-il un obstacle à la recherche de la vérité ?",
+            "Pour atteindre la vérité, toutes les expériences se valent-elles ?",
+            "Une vérité peut-elle être définitive ?",
+            "L'erreur nous éloigne-t-elle nécessairement de la vérité ?",
+            "La raison est-elle la source de toute vérité ?",
+            "Peut-on ne pas vouloir rechercher la vérité ?",
+            "A-t-on besoin des autres pour trouver la vérité ?",
+            "Toute vérité est-elle bonne à dire ?",
+            "Se tromper éloigne-t-il de la vérité ?",
+            "Peut-on vivre sans se soucier de la vérité ?",
+            "Y a-t-il des vérités dont on ne peut pas douter ?",
+            "Suffit-il de connaître la vérité pour nous débarrasser de nos préjugés ?",
+            // "La vérité doit-elle être partagée ?", // Déjà présent
+            "La recherche de la vérité rassemble-t-elle les hommes ?",
+            "La recherche de la vérité nous rend-elle plus libre ?",
+            "Peut-on opposer le respect des opinions à la recherche de la vérité ?",
+            "Y a-t-il des vérités définitives ?",
+            // "L’erreur nous rapproche-t-elle de la vérité ?", // Déjà présent
+            // "Connaître la vérité nous rend-il plus libres ?", // Déjà présent
+            "Que veut-on dire quand on parle de nature humaine ?",
+            "L'art doit-il suivre la nature ?",
+            "Faut-il prendre la nature pour modèle ?",
+            "La culture est-elle une seconde nature ?",
+            "La technique s'oppose-t-elle à la nature ?",
+            "La technique nous libère-t-elle de la nature ?",
+            "Sommes-nous responsables de la nature ?",
+            "L'art nous rapproche-t-il de la nature ?",
+            "L'art nous permet-il d'échapper à la nature ?",
+            "Avons-nous des devoirs envers la nature ?",
+            "Faut-il préférer le naturel à l’artificiel ?",
+            "La nature peut-elle être détruite ?",
+            "La nature est-elle à notre disposition ?",
+            "L’activité technique fait-elle violence à la nature ?",
+            "Respecter la nature, est-ce renoncer à la transformer ?",
+            "Transformer la nature nous rend-il plus libres ?",
+            "Transformer la nature, est-ce gagner en liberté ?",
+            "Peut-on dire de la nature qu’elle est hostile à l’homme ?"
+        ];
+
+        // Game state
+        let score = 0;
+        let lives = 3;
+        let currentSubject = "";
+        let usedSubjects = [];
+        let loading = false;
+        let indiceUnlocked = false;
+        let indiceCurrent = "";
+
+        // --- Paramètres de niveaux
+        const MAX_LEVEL = 5;
+        let level = 1;
+        let currentModelProblematique = "";
+        let currentHoles = []; // [{type: 'input'|'textarea', label:..., placeholder:..., value:..., id:...}]
+        let currentFilled = {};
+        let currentXP = 0;
+        const xpPerLevel = 100; // Exemple: 100 XP pour "monter de niveau" d'XP (pas lié aux niveaux du jeu)
+        let playerXPLevel = 0;
+
+        // Achievements
+        const achievements = {
+            FIRST_PROBLEM: { id: "FIRST_PROBLEM", name: "Débutant Problématique", description: "Valider votre première problématique.", unlocked: false, icon: "🎓" },
+            NO_HINT_WIN: { id: "NO_HINT_WIN", name: "Autonome", description: "Gagner un niveau sans utiliser d'indice.", unlocked: false, icon: "💡" },
+            LEVEL_3: { id: "LEVEL_3", name: "Niveau 3 Atteint", description: "Atteindre le niveau 3.", unlocked: false, icon: "🥉" },
+            LEVEL_5: { id: "LEVEL_5", name: "Maître Problématiseur", description: "Atteindre le niveau 5.", unlocked: false, icon: "🏆" },
+            PERFECT_STREAK_3: { id: "PERFECT_STREAK_3", name: "Série de 3", description: "Valider 3 problématiques d'affilée.", unlocked: false, icon: "🎯" }
+        };
+        let correctStreak = 0;
+
+
+        // DOM elements
+        const scoreBox = document.getElementById('scoreBox');
+        const livesBox = document.getElementById('livesBox');
+        const subjectBox = document.getElementById('subjectBox');
+        const indiceBtn = document.getElementById('indiceBtn');
+        const indiceBox = document.getElementById('indiceBox');
+        const problemForm = document.getElementById('problemForm');
+        const feedbackBox = document.getElementById('feedbackBox');
+        const nextLevelBtn = document.getElementById('nextLevelBtn');
+        const gameOverBox = document.getElementById('gameOverBox');
+        const finalScore = document.getElementById('finalScore');
+        const gameContainer = document.getElementById('gameContainer');
+        const confettiContainer = document.getElementById('confettiContainer');
+        const levelProgressBar = document.getElementById('levelProgressBar');
+        const xpBar = document.getElementById('xpBar');
+        const currentAchievementsContainer = document.getElementById('currentAchievements');
+        const openAchievementsModalBtn = document.getElementById('openAchievementsModalBtn');
+        const achievementsModal = document.getElementById('achievementsModal');
+        const closeAchievementsModalBtn = document.getElementById('closeAchievementsModalBtn');
+        const achievementsGrid = document.getElementById('achievementsGrid');
+        const toastNotification = document.getElementById('toastNotification');
+
+
+        // Inputs
+        const inputX = document.getElementById('inputX');
+        const inputCarX = document.getElementById('inputCarX');
+        const inputY = document.getElementById('inputY');
+        const inputCarY = document.getElementById('inputCarY');
+
+        // Modal elements
+        const modalFeedback = document.getElementById('modalFeedback');
+        const modalContent = document.getElementById('modalContent');
+        const modalMessage = document.getElementById('modalMessage');
+        const modalCloseBtn = document.getElementById('modalCloseBtn');
+
+        // Modal début de niveau
+        const modalLevel = document.getElementById('modalLevel');
+        const modalLevelContent = document.getElementById('modalLevelContent');
+        const modalLevelMessage = document.getElementById('modalLevelMessage');
+        const modalLevelBtn = document.getElementById('modalLevelBtn');
+        const modalLevelLoading = document.getElementById('modalLevelLoading');
+
+        function shuffle(array) {
+            let currentIndex = array.length, randomIndex;
+            while (currentIndex !== 0) {
+                randomIndex = Math.floor(Math.random() * currentIndex);
+                currentIndex--;
+                [array[currentIndex], array[randomIndex]] = [
+                    array[randomIndex], array[currentIndex]
+                ];
+            }
+            return array;
+        }
+        function pickNewSubject() {
+            if (usedSubjects.length === sujets.length) usedSubjects = [];
+            let candidates = sujets.filter(s => !usedSubjects.includes(s));
+            if (candidates.length === 0) candidates = sujets;
+            currentSubject = candidates[Math.floor(Math.random()*candidates.length)];
+            usedSubjects.push(currentSubject);
+            // subjectBox.textContent = currentSubject; // Sera mis à jour dans nextLevel avec l'icône
+        }
+        function updateScoreLives(scoreIncreased = false) {
+            scoreBox.textContent = "Score : " + score;
+            if (scoreIncreased) {
+                scoreBox.classList.add('pulsate');
+                setTimeout(() => scoreBox.classList.remove('pulsate'), 500);
+            }
+            Array.from(livesBox.children).forEach((el, i) => {
+                el.className = "life" + (i < lives ? "" : " lost");
+                el.textContent = i < lives ? "💜" : "♡";
+            });
+        }
+        function resetForm() {
+            problemForm.reset();
+            inputX.focus();
+            feedbackBox.style.display = "none";
+            indiceBox.style.display = "none";
+            indiceBox.textContent = "";
+            indiceUnlocked = false;
+            indiceBtn.disabled = (score < 2 || loading);
+        }
+        function showIndice(msg) {
+            indiceBox.textContent = msg;
+            indiceBox.style.display = "block";
+        }
+        // --- Modal feedback helpers
+        function showModalFeedback(msg, good) {
+            modalMessage.innerHTML = (good ? "🎉 " : "🤔 ") + msg; // Ajout d'émojis dynamiques
+            modalContent.classList.remove('success', 'danger');
+            modalContent.classList.add(good ? 'success' : 'danger');
+            modalFeedback.style.display = 'flex';
+            // Animation oscillation
+            modalContent.classList.remove('modal-oscillate');
+            // Force reflow for restart animation
+            void modalContent.offsetWidth;
+            setTimeout(() => {
+                modalContent.classList.add('modal-oscillate');
+            }, 180);
+        }
+        function hideModalFeedback() {
+            modalFeedback.style.display = 'none';
+        }
+        modalCloseBtn.onclick = hideModalFeedback;
+
+        // --- Feedback (remplace l'ancien showFeedback)
+        function showFeedback(msg, good) {
+            // feedbackBox.style.display = "none"; // on masque l'ancien
+            showModalFeedback(msg, good);
+        }
+        function hideFeedback() {
+            hideModalFeedback();
+        }
+        function gameOver() {
+            gameOverBox.style.display = "block";
+            finalScore.textContent = "Score : " + score;
+            problemForm.style.display = "none";
+            indiceBtn.style.display = 'none';
+            subjectBox.textContent = "Merci d’avoir joué !";
+            nextLevelBtn.style.display = "none";
+            levelProgressBar.style.width = "100%"; // Barre pleine à la fin
+            levelProgressBar.textContent = "Terminé !";
+            openAchievementsModalBtn.style.display = 'none';
+        }
+
+        // --- Génération d'une problématique modèle via l'API
+        async function generateModelProblematique(subject) {
+            // On demande une problématique complète, bien structurée, pour le sujet
+
+
+            let system = "Tu es professeur de philosophie. Pour le sujet suivant, donne une problématique complète selon la structure 'X, car... ou bien Y, car... ?' sans rien expliquer ni commenter, juste la problématique.";
+            system = system +" La problématique doit commencer par une question complète (par exemple : 'Faut-il...', 'Peut-on...', 'Doit-on...', etc.) et non par un simple mot ou groupe nominal.";
+            system = system +"Retourne la problématique sous la forme d'un objet JSON : {\"X\":..., \"justificationX\":..., \"Y\":..., \"justificationY\":...}.";
+            system = system +"Exemple de réponse pour le sujet 'La nature est-elle hostile à l’homme ?' : {\"X\":\"La nature est hostile à l'homme\", \"justificationX\":\"la nature est source de maladies et de catastrophes qui empêchent l'homme de vivre en paix\", \"Y\":\"La nature est-elle bienveillante envers l'homme\", \"justificationY\":\"elle offre des ressources vitales et un environnement propice à la vie qui permet à l'homme de s'épanouir et de se liberér de ses contraintes, même naturelles\"}.";
+            system = system +" pas de 'car' dans les justifications, mais des phrases complètes affirmatives sans ponctuation finale.";
+            system = system +" pas de '?' dans les X et Y, mais des phrases affirmatives sans ponctuation finale.";
+
+            
+            // On construit le prompt
+            // On utilise le sujet pour construire la problématique
+
+
+            let prompt = "Sujet : " + subject + "\nDonne-moi une problématique complète, commençant par une question, selon la structure demandée, et retourne-la au format JSON demandé.";
+            //.log(prompt);
+
+
+            let res = await callAPI({system, prompt});
+            //console.log("API response:", res);
+            // On parse le JSON pour extraire les champs
+            if (!res) return "";
+            let obj;
+            try {
+                obj = JSON.parse(res);
+            } catch(e) {
+                // fallback : essayer d'extraire le JSON d'une réponse textuelle
+                let match = res.match(/\{[\s\S]*\}/);
+                if (match) {
+                    try {
+                        obj = JSON.parse(match[0]);
+                        //console.log("Parsed JSON from response:", obj);
+                    } catch(e2) {
+                        return "";
+                    }
+                } else {
+                    return "";
+                }
+            }
+            if (!obj || !obj.X || !obj.justificationX || !obj.Y || !obj.justificationY) return "";
+
+            // if justificationX starts with "car", remove it
+            if (obj.justificationX.startsWith("car ")) {
+                obj.justificationX = obj.justificationX.slice(4).trim();
+            }
+            // if justificationY starts with "car", remove it
+            if (obj.justificationY.startsWith("car ")) {
+                obj.justificationY = obj.justificationY.slice(4).trim();
+            }
+
+            // to lowercase the X and Y
+            obj.X = obj.X.toLowerCase();
+            obj.Y = obj.Y.toLowerCase();
+            // to lowercase the justifications
+            obj.justificationX = obj.justificationX.toLowerCase();
+            obj.justificationY = obj.justificationY.toLowerCase();
+            // capitalize first letter of X
+            obj.X = obj.X.charAt(0).toUpperCase() + obj.X.slice(1);
+
+            // On recompose la problématique pour la suite du code
+            return `${obj.X}, car ${obj.justificationX} ou bien ${obj.Y}, car ${obj.justificationY} ?`;
+        }
+
+        // --- Trouer la problématique selon le niveau
+        function makeHolesInProblematique(model, level) {
+            // On identifie les parties : X, car..., Y, car...
+            // Structure attendue : X, car ... ou bien Y, car ... ?
+            // On découpe grossièrement
+            let regex = /^(.*?),\s*car\s+(.*?)\s+ou bien\s+(.*?),\s*car\s+(.*?)\s*\?$/i;
+            let m = model.match(regex);
+            if (!m) {
+                // fallback : tout masquer
+                return [{type:'textarea', label:'Complète la problématique', placeholder:'Recopie ou complète ici', value:'', id:'hole0'}];
+            }
+            // m[1]=X, m[2]=carX, m[3]=Y, m[4]=carY
+            let fields = [
+                {type:'input', label:'X', placeholder:"Premier terme de l'alternative...", value:m[1], id:'holeX'},
+                {type:'textarea', label:'car...', placeholder:"Justification de X", value:m[2], id:'holeCarX'},
+                {type:'input', label:'Ou bien Y', placeholder:"Second terme de l'alternative...", value:m[3], id:'holeY'},
+                {type:'textarea', label:'car...', placeholder:"Justification de Y", value:m[4], id:'holeCarY'}
+            ];
+            // Selon le niveau, on laisse plus ou moins de champs pré-remplis
+            // Niveau 1 : 1 trou, Niveau 2 : 2 trous, etc.
+            let holes = [];
+            let indices = [0,1,2,3];
+            shuffle(indices);
+            for (let i=0; i<level && i<fields.length; ++i) {
+                holes.push(indices[i]);
+            }
+            // On trie pour garder l'ordre d'affichage
+            holes.sort((a,b)=>a-b);
+            let result = [];
+            for (let i=0; i<fields.length; ++i) {
+                // Tous les champs sont éditables, même pré-remplis
+                result.push({...fields[i], value: holes.includes(i) ? "" : fields[i].value});
+            }
+            return result;
+        }
+
+        // --- Affichage dynamique du formulaire selon les trous
+        function renderLevelForm(holes) {
+            // On vide le formulaire
+            problemForm.innerHTML = "";
+            holes.forEach((h, idx) => {
+                let div = document.createElement('div');
+                div.className = "form-step";
+                let label = document.createElement('label');
+                label.setAttribute('for', h.id);
+                label.textContent = h.label;
+                div.appendChild(label);
+                let field;
+                if (h.type === 'input') {
+                    field = document.createElement('input');
+                    field.type = 'text';
+                    field.id = h.id;
+                    field.maxLength = 120;
+                    field.placeholder = h.placeholder;
+                    field.value = h.value || "";
+                    field.required = true;
+                    // plus de readonly
+                } else {
+                    field = document.createElement('textarea');
+                    field.id = h.id;
+                    field.minLength = 80;
+                    field.style.minHeight = "130px"
+                    field.placeholder = h.placeholder;
+                    field.value = h.value || "";
+                    field.required = true;
+                    // plus de readonly
+                }
+                div.appendChild(field);
+                problemForm.appendChild(div);
+            });
+            // Actions
+            let actions = document.createElement('div');
+            actions.className = "actions";
+            let btn = document.createElement('button');
+            btn.type = "submit";
+            btn.className = "glossy-btn";
+            btn.textContent = "Valider ma problématique";
+            actions.appendChild(btn);
+            problemForm.appendChild(actions);
+        }
+
+        // Affiche le modal de début de niveau, puis exécute callback quand on clique sur "Commencer"
+        function showLevelModal(level, subject, callback) {
+            modalLevelMessage.innerHTML = `<b>Niveau ${level}</b><br><span style="font-size:1.08em">${subject}</span><br><br>
+                <span style="font-size:0.98em;color:#666;">
+                Plus le niveau augmente, moins la problématique est pré-remplie.<br>
+                À toi de jouer !
+                </span>`;
+            modalLevel.style.display = 'flex';
+            modalLevelBtn.disabled = false;
+            modalLevelLoading.style.display = 'none';
+            modalLevelBtn.onclick = async function() {
+                modalLevelBtn.disabled = true;
+                modalLevelLoading.style.display = 'block';
+                await callback();
+                modalLevel.style.display = 'none';
+            };
+        }
+
+        // --- Nouvelle gestion du niveau
+        async function nextLevel() {
+            gameContainer.classList.add('level-transition-out');
+            await new Promise(resolve => setTimeout(resolve, 300)); // Durée de fadeOutLevel
+
+            pickNewSubject();
+            resetForm();
+            nextLevelBtn.style.display = "none";
+            // problemForm.style.display = "block"; // Sera affiché après le modal et l'animation
+            indiceBtn.style.display = 'inline-block';
+            updateProgressBar();
+            updateXPBar(); // Mettre à jour la barre d'XP
+
+            // Afficher le sujet avec l'icône de difficulté
+            const difficultyIcons = ['😄', '🤔', '🧐', '🤯', '🔥']; // Exemple d'icônes par niveau
+            const difficultyIcon = difficultyIcons[Math.min(level - 1, difficultyIcons.length - 1)];
+            subjectBox.innerHTML = `${currentSubject} <span class="difficulty-icon" title="Difficulté niveau ${level}">${difficultyIcon}</span>`;
+
+
+            gameContainer.classList.remove('level-transition-out'); 
+            problemForm.style.display = "none"; // Masquer avant le modal
+
+            showLevelModal(level, currentSubject, async () => {
+                currentModelProblematique = await generateModelProblematique(currentSubject);
+                currentHoles = makeHolesInProblematique(currentModelProblematique, level);
+                renderLevelForm(currentHoles);
+                problemForm.style.display = "block"; 
+
+                gameContainer.classList.add('level-transition-in');
+                setTimeout(() => {
+                    gameContainer.classList.remove('level-transition-in');
+                }, 500); // Durée de fadeInLevel
+            });
+        }
+
+        // --- Form submission (validation de la problématique trouée)
+        problemForm.onsubmit = async function(e) {
+            e.preventDefault();
+            if (loading) return;
+            // Récupérer les valeurs des trous
+            let values = {};
+            let ok = true;
+            currentHoles.forEach(h => {
+                let v = (problemForm.querySelector('#'+h.id)||{}).value;
+                if (!h.readonly && (!v || !v.trim())) ok = false;
+                values[h.id] = v;
+            });
+            if (!ok) {
+                showFeedback("Merci de remplir tous les champs !", false);
+                return;
+            }
+            // Reconstruire la problématique à partir des champs
+            let x = values.holeX || currentHoles.find(h=>h.id==='holeX').value;
+            let carx = values.holeCarX || currentHoles.find(h=>h.id==='holeCarX').value;
+            let y = values.holeY || currentHoles.find(h=>h.id==='holeY').value;
+            let cary = values.holeCarY || currentHoles.find(h=>h.id==='holeCarY').value;
+            showFeedback("Vérification de ta problématique...", true);
+            loading = true;
+            problemForm.querySelectorAll("input, textarea, button").forEach(el=>el.disabled=true);
+            let verdict = await verifyProblematique(x, carx, y, cary);
+            loading = false;
+            problemForm.querySelectorAll("input, textarea, button").forEach(el=>el.disabled=false);
+            if (!verdict) {
+                showFeedback("Erreur technique, réessaie.", false);
+                return;
+            }
+            if (verdict.startsWith("✅")) {
+                score++;
+                addXP(20); // Gagner 20 XP pour une bonne réponse
+                updateScoreLives(true); // true pour indiquer que le score a augmenté
+                showConfetti();
+                showFeedback("Bravo ! " + verdict.slice(1).trim(), true);
+                nextLevelBtn.style.display = "inline-block";
+                problemForm.style.display = "none";
+                indiceBtn.style.display = 'none';
+                correctStreak++;
+
+                checkAndUnlockAchievement("FIRST_PROBLEM");
+                if (!indiceUnlocked) {
+                    checkAndUnlockAchievement("NO_HINT_WIN");
+                }
+                if (level >= 3) checkAndUnlockAchievement("LEVEL_3");
+                if (level >= 5) checkAndUnlockAchievement("LEVEL_5");
+                if (correctStreak >= 3) checkAndUnlockAchievement("PERFECT_STREAK_3");
+
+
+                // Effet de rebond sur le bouton de validation
+                const submitButton = problemForm.querySelector('button[type="submit"]');
+                if (submitButton) {
+                    submitButton.classList.add('btn-validated-bounce');
+                    setTimeout(() => {
+                        submitButton.classList.remove('btn-validated-bounce');
+                    }, 600); // Durée de l'animation bounceValidated
+                }
+                
+                // Augmenter le niveau si pas max
+                if (level < MAX_LEVEL) level++;
+            } else {
+                loseLife();
+                correctStreak = 0; // Réinitialiser la série
+                showFeedback("Raté ! " + verdict.replace(/^❌/, '').trim(), false);
+                gameContainer.classList.add('shake-error');
+                setTimeout(() => gameContainer.classList.remove('shake-error'), 500);
+                if (lives > 0) {
+                    // On ne masque plus automatiquement le feedback
+                }
+            }
+            indiceBtn.disabled = (score < 2 || indiceUnlocked || loading);
+        };
+
+        // --- Indices : prompt pour suggérer un indice "pédagogique"
+        async function fetchIndice() {
+            if (indiceUnlocked || score < 2 || loading) return;
+            indiceBtn.disabled = true;
+            showIndice("Chargement de l’indice…");
+            indiceUnlocked = true;
+            score -= 2;
+            updateScoreLives();
+            // Prompt pédagogique pour générer un indice d’aide sur la problématisation du sujet courant
+            let system = "Tu es un professeur de philosophie français. Tu aides un élève à problématiser un sujet donné, selon la méthode : faire émerger une tension conceptuelle, formuler une alternative selon la structure 'X, car... ou bien Y, car... ?'. Donne un indice ou une piste pour aider à problématiser ce sujet. Indice en 2 phrases maximum.";
+            system += " Ne donne pas la réponse, mais une piste de réflexion pour aider l'élève à trouver la problématique par lui-même.";
+            system += " Ne donne jamais d'exemple de problématique, juste un indice ou une question qui l'aide à réfléchir.";
+            
+            let prompt = "Sujet : " + currentSubject + "\nDonne-moi un indice pour problématiser ce sujet.";
+            let hint = await callAPI({system, prompt});
+            showIndice(hint);
+        }
+
+        // --- Indice bouton
+        indiceBtn.onclick = fetchIndice;
+
+        // --- Next level bouton
+        nextLevelBtn.onclick = nextLevel;
+
+        // --- Init jeu
+        function startGame() {
+            shuffle(sujets);
+            score = 0;
+            lives = 3;
+            usedSubjects = [];
+            level = 1;
+            currentXP = 0;
+            playerXPLevel = 0;
+            correctStreak = 0;
+            Object.values(achievements).forEach(ach => ach.unlocked = false); // Reset achievements
+            updateProgressBar();
+            updateXPBar();
+            renderAchievementsMenu(); // Initialiser le menu des badges
+            updateCurrentAchievementsDisplay(); // Afficher les badges initiaux (aucun)
+            openAchievementsModalBtn.style.display = 'inline-block';
+            nextLevel();
+        }
+        // --- Initialisation
+        startGame();
+
+        // --- Rendre le bouton d'indice actif/inactif selon le score
+        setInterval(()=>{
+            indiceBtn.disabled = (score < 2 || indiceUnlocked || loading);
+        }, 500);
+
+        // --- API OpenAI proxy
+        async function callAPI({system, prompt}) {
+            loading = true;
+            indiceBtn.disabled = true;
+            let formData = new FormData();
+            formData.append("system", system);
+            formData.append("prompt", prompt);
+            try {
+                let resp = await fetch("...", {
+                    method: "POST",
+                    body: formData,
+                });
+                let data = await resp.json();
+                if (data && data.response) {
+                    let parsed;
+                    try {
+                        parsed = typeof data.response === "string" ? JSON.parse(data.response) : data.response;
+                        if (parsed.choices && parsed.choices[0] && parsed.choices[0].message && parsed.choices[0].message.content)
+                            return parsed.choices[0].message.content.trim();
+                    } catch(e) {
+                        // Sometimes it's already plain text
+                        return (typeof data.response === "string" ? data.response : JSON.stringify(data.response)).trim();
+                    }
+                }
+                return "Erreur API.";
+            } catch (e) {
+                return "Erreur lors de la connexion à l’API.";
+            } finally {
+                loading = false;
+                indiceBtn.disabled = (score < 2 || indiceUnlocked || loading);
+            }
+        }
+
+        // --- Vérification de la problématique
+        async function verifyProblematique(x, carx, y, cary) {
+            let system = `
+Tu es un correcteur de philosophie du lycée. 
+Tu dois juger si la problématique proposée par l'élève respecte les critères suivants :
+- Structure : "X, car... ou bien Y, car... ?"
+- Justification de chaque terme (car...)
+- Pertinence philosophique du problème (pas une question de fait ou triviale)
+Si la problématique est correcte, commence ta réponse par "✅" puis explique brièvement pourquoi elle est correcte (1 phrase).
+Si elle est incorrecte, commence ta réponse par "❌" puis explique pourquoi (1 à 3 phrases, ton extrêmement encourageant et bienveillant).
+
+Sujet donné : "${currentSubject}"
+
+Exemples de problématiques correctes :
+Sujet : La nature est-elle hostile à l’homme ?
+Problématique : "La nature est hostile à l'homme, car elle est source de maladies et de catastrophes qui empêchent l'homme de vivre en paix, ou bien la nature est-elle bienveillante envers l'homme, car elle offre des ressources vitales et un environnement propice à la vie qui permet à l'homme de s'épanouir et de se liberér de ses contraintes, même naturelles ?"
+Sujet : L'art contribue-t-il à notre liberté ?
+Problématique : "L'art contribue à notre liberté, car il permet l'expression de soi et la critique sociale, ou bien l'art est-il une entrave à la liberté, car il peut être utilisé pour manipuler les masses et imposer des idéologies ?"
+
+
+Écris comme si tu répondais directement à l'élève. To familier et amical. Rajoute des conseils sans pour autant donner la réponse c'est très important. 
+`;
+            let prompt = `Problématique proposée : "${x} (X), car (justificationX) ${carx} ou bien ${y} (Y), car (justificationY) ${cary} ?"`;
+            //console.log("Vérification de la problématique :", prompt);
+            //console.log("System prompt:", system);
+            return await callAPI({system, prompt});
+        }
+
+        // --- Gestion du jeu
+        function loseLife() {
+            lives--;
+            updateScoreLives();
+            gameContainer.classList.add('shake-error'); // Ajout de la secousse ici aussi
+            setTimeout(() => gameContainer.classList.remove('shake-error'), 500);
+            if (lives <= 0) {
+                setTimeout(gameOver, 1000);
+            }
+        }
+
+        // --- Confetti effect
+        function createConfetto() {
+            const confetto = document.createElement('div');
+            confetto.classList.add('confetto');
+            // Randomize type for different colors/shapes
+            const type = Math.floor(Math.random() * 4) + 1;
+            confetto.classList.add('c' + type);
+            
+            confetto.style.left = Math.random() * 100 + 'vw';
+            // Start slightly above the viewport
+            confetto.style.animationDuration = (Math.random() * 2 + 2) + 's'; // 2-4 seconds fall time
+            confetto.style.opacity = Math.random() * 0.5 + 0.5; // 0.5 - 1.0 opacity
+            
+            // Random horizontal drift
+            const drift = (Math.random() - 0.5) * 200; // -100px to +100px
+            confetto.animate([
+                { transform: `translateY(-10vh) translateX(0px) rotate(0deg)` },
+                { transform: `translateY(110vh) translateX(${drift}px) rotate(${Math.random() * 720}deg)` }
+            ], {
+                duration: parseFloat(confetto.style.animationDuration) * 1000,
+                easing: 'linear',
+                iterations: 1
+            });
+
+            confettiContainer.appendChild(confetto);
+
+            setTimeout(() => {
+                confetto.remove();
+            }, parseFloat(confetto.style.animationDuration) * 1000);
+        }
+
+        function showConfetti(count = 30) {
+            for (let i = 0; i < count; i++) {
+                setTimeout(createConfetto, i * 50); // Stagger confetti creation
+            }
+        }
+
+        // --- Progress Bar
+        function updateProgressBar() {
+            const progress = Math.min(100, (level / MAX_LEVEL) * 100);
+            levelProgressBar.style.width = progress + '%';
+            if (level <= MAX_LEVEL) {
+                levelProgressBar.textContent = `Niveau ${level}/${MAX_LEVEL}`;
+            } else {
+                 levelProgressBar.textContent = `Niveau ${MAX_LEVEL}/${MAX_LEVEL}`;
+            }
+        }
+
+        // --- XP Bar
+        function updateXPBar() {
+            const progress = Math.min(100, (currentXP / xpPerLevel) * 100);
+            xpBar.style.width = progress + '%';
+            xpBar.textContent = `${currentXP}/${xpPerLevel} XP`;
+            if (progress === 100) {
+                xpBar.textContent = `Niveau Suivant !`;
+            }
+        }
+
+        function addXP(amount) {
+            currentXP += amount;
+            if (currentXP >= xpPerLevel) {
+                playerXPLevel++;
+                currentXP -= xpPerLevel;
+                // Optionnel: afficher une notification de montée de niveau d'XP
+                showToastNotification(`🎉 Niveau d'XP ${playerXPLevel} atteint !`);
+            }
+            updateXPBar();
+        }
+
+        // --- Achievements System
+        function checkAndUnlockAchievement(achievementId) {
+            const ach = achievements[achievementId];
+            if (ach && !ach.unlocked) {
+                ach.unlocked = true;
+                showToastNotification(`🏆 Badge débloqué : ${ach.name} !`);
+                renderAchievementsMenu(); // Mettre à jour le modal
+                updateCurrentAchievementsDisplay(); // Mettre à jour l'affichage direct
+                // Animation pour le nouveau badge dans l'affichage direct
+                const badgeEl = currentAchievementsContainer.querySelector(`[data-id="${achievementId}"]`);
+                if (badgeEl) {
+                    badgeEl.classList.add('achievement-unlocked');
+                    setTimeout(() => badgeEl.classList.remove('achievement-unlocked'), 1000);
+                }
+            }
+        }
+
+        function showToastNotification(message) {
+            toastNotification.textContent = message;
+            toastNotification.style.display = 'block';
+            // L'animation CSS gère le fadeInOut
+            toastNotification.onanimationend = () => {
+                if (toastNotification.style.opacity === "0") { // Assurez-vous qu'il se cache à la fin de l'animation fadeOut
+                     toastNotification.style.display = 'none';
+                }
+            };
+             // Forcer le redémarrage de l'animation si elle est déjà en cours pour un toast précédent
+            toastNotification.style.animation = 'none';
+            toastNotification.offsetHeight; /* trigger reflow */
+            toastNotification.style.animation = null; 
+            toastNotification.classList.remove('fadeInOutToast'); // au cas où
+            void toastNotification.offsetWidth; // reflow
+            toastNotification.classList.add('fadeInOutToast');
+
+
+        }
+
+        function renderAchievementsMenu() {
+            achievementsGrid.innerHTML = ''; // Vider la grille
+            Object.values(achievements).forEach(ach => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'achievement-item';
+                
+                const badgeDiv = document.createElement('div');
+                badgeDiv.className = `badge ${ach.unlocked ? '' : 'locked'}`;
+                badgeDiv.textContent = ach.icon; // Utiliser l'icône comme contenu principal du badge
+                badgeDiv.dataset.id = ach.id;
+
+                const tooltipSpan = document.createElement('span');
+                tooltipSpan.className = 'badge-tooltip';
+                tooltipSpan.textContent = ach.description;
+                badgeDiv.appendChild(tooltipSpan);
+                
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = ach.name;
+                
+                itemDiv.appendChild(badgeDiv);
+                itemDiv.appendChild(nameSpan);
+                achievementsGrid.appendChild(itemDiv);
+            });
+        }
+        
+        function updateCurrentAchievementsDisplay() {
+            currentAchievementsContainer.innerHTML = '';
+            const unlockedAchievements = Object.values(achievements).filter(a => a.unlocked);
+            if (unlockedAchievements.length === 0) {
+                currentAchievementsContainer.innerHTML = '<span style="font-size:0.85em; color:#888;">Aucun badge débloqué pour le moment.</span>';
+            } else {
+                unlockedAchievements.slice(0, 3).forEach(ach => { // Afficher les 3 plus récents ou les 3 premiers
+                    const badgeDiv = document.createElement('div');
+                    badgeDiv.className = 'badge achievement-unlocked'; // Toujours unlocked ici
+                    badgeDiv.textContent = `${ach.icon} ${ach.name}`;
+                    badgeDiv.title = ach.description;
+                    badgeDiv.dataset.id = ach.id;
+                    currentAchievementsContainer.appendChild(badgeDiv);
+                });
+                if (unlockedAchievements.length > 3) {
+                     currentAchievementsContainer.innerHTML += `<span style="font-size:0.8em; color:#666; margin-left:5px;">+${unlockedAchievements.length - 3} autres...</span>`;
+                }
+            }
+        }
+
+        openAchievementsModalBtn.onclick = () => {
+            renderAchievementsMenu(); // S'assurer que c'est à jour
+            achievementsModal.style.display = 'flex';
+        };
+        closeAchievementsModalBtn.onclick = () => {
+            achievementsModal.style.display = 'none';
+        };
+        // Fermer le modal si on clique en dehors du contenu
+        achievementsModal.onclick = (event) => {
+            if (event.target === achievementsModal) {
+                achievementsModal.style.display = 'none';
+            }
+        };
+
+
+    </script>
+
+
+</body></html>
